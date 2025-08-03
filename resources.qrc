@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/anomalies2contours" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
