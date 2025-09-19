@@ -50,7 +50,6 @@ class Anomalies2Contours:
         self.raster_path = None
         self.raster_temp_dir = None
         self.shp_path = None
-        self.first_update_done = False
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -73,7 +72,8 @@ class Anomalies2Contours:
 
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
-        self.first_start = None
+        self.first_start = True
+        self._running = False
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -177,9 +177,6 @@ class Anomalies2Contours:
             callback=self.run,
             parent=self.iface.mainWindow())
 
-        # will be set False in run()
-        self.first_start = True
-
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -192,16 +189,21 @@ class Anomalies2Contours:
 
     def run(self):
         """Run method that performs all the real work"""
-
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
-        if self.first_start == True:
-            self.first_start = False
-            self.dlg = Anomalies2ContoursDialog()
+        self.dlg = Anomalies2ContoursDialog()
+
+        if self.first_start:
+            try:
+                self.dlg.applyButton.clicked.disconnect()
+            except Exception:
+                pass
 
         # show the dialog
         self.dlg.on_raster_changed(0)
         self.dlg.show()
+        self.dlg.raise_()
+        self.dlg.activateWindow()
         layer = self.dlg.mMapLayerComboBox.currentLayer()
         if layer is None:
             QMessageBox.warning(self.iface.mainWindow(), "Увага", "Спочатку додайте растровий шар.")
@@ -210,7 +212,8 @@ class Anomalies2Contours:
         self.dlg.doubleSpinBox.valueChanged.connect(self.on_doubleSpinBox)
         self.dlg.pushButton_2.clicked.connect(self.on_pushButton_2)
         self.dlg.pushButton.clicked.connect(self.download_histogram)
-        self.dlg.button_box.button(QDialogButtonBox.Apply).clicked.connect(self.on_apply_button_clicked)
+        self.dlg.button_box.button(QDialogButtonBox.Apply).clicked.connect(self.on_apply_button_clicked, Qt.UniqueConnection)
+        self.first_start = False
         # Викликаємо цикл подій діалогу
         result = self.dlg.exec_()
         # Якщо натиснута кнопка OK
@@ -222,9 +225,9 @@ class Anomalies2Contours:
         self.check_threshold()
 
     def on_pushButton_2(self):
-        if not self.first_update_done:
-            self.initial_update_on_first_click()
-            self.first_update_done = True
+        if self.first_start:
+            self.on_doubleSpinBox()    
+            self.show_histogram_in_graphicsview()
         else:
             self.show_histogram_in_graphicsview()
 
@@ -349,10 +352,6 @@ class Anomalies2Contours:
             else:
                 right_min_value = np.max(raster_array)  # або np.nan, або інше значення за замовчуванням
             self.set_histogram_range_values(left_max_value, right_min_value)
-    
-    def initial_update_on_first_click(self):
-        self.on_doubleSpinBox()    
-        self.show_histogram_in_graphicsview()
     
     def  raster_creation(self):
         if self.raster_temp_dir is not None:
