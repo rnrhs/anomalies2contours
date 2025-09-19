@@ -73,7 +73,6 @@ class Anomalies2Contours:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = True
-        self._running = False
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
